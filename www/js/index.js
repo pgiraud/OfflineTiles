@@ -60,6 +60,8 @@ var app = {
             dataUri = canvas.toDataURL('image/png');
             console.log('******************* start')
             var start = new Date().getTime();
+            var ids = [];
+            var inserted = 0;
             db.transaction(function(tx) {
                 tx.executeSql('DROP TABLE IF EXISTS test_table');
                 tx.executeSql('CREATE TABLE IF NOT EXISTS test_table (id integer primary key, data text)');
@@ -67,23 +69,34 @@ var app = {
                 for ( var i=1 ; i <= NB_ITER ; i++ ) {
                     tx.executeSql("INSERT INTO test_table (data) VALUES (?)", [dataUri], function(tx, res) {
                         // console.log("insertId: " + res.insertId + " -- probably 1");
-                        // ids.push(res.insertId);
-                        db.transaction(function(trx) {
-                            trx.executeSql("SELECT data from test_table where id=?;", [res.insertId], function(t, res) {
-                                done++;
-                                // var img = document.getElementById("dessin");
-                                // img.setAttribute("src", res.rows.item(0).data);
-                                if (done==NB_ITER) {
-                                    var end = new Date().getTime();
-                                    console.log('DB elapsed time: ' + (end-start) + 'ms');
-                                    with_files();
-                                }
-                            });
-                        });
+                        ids.push(res.insertId);
+                        inserted++;
+                        if (inserted==NB_ITER) {
+                            read_db();
+                        }
                     });
                 }
 
             });
+            read_db = function() {
+                var end = new Date().getTime();
+                console.log('DB inserted time: ' + (end-start) + 'ms');
+                for ( var i=0, l=ids.length ; i<l ; i++ ) {
+                    var index = ids[i];
+                    db.transaction(function(trx) {
+                        trx.executeSql("SELECT data from test_table where id=?;", [index], function(t, res) {
+                            done++;
+                            // var img = document.getElementById("dessin");
+                            // img.setAttribute("src", res.rows.item(0).data);
+                            if (done==NB_ITER) {
+                                var end = new Date().getTime();
+                                console.log('DB elapsed time: ' + (end-start) + 'ms');
+                                with_files();
+                            }
+                        });
+                    });
+                }
+            };
             with_files = function() {
                 done = 0;
                 files = [];
