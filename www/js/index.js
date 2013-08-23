@@ -47,8 +47,11 @@ var app = {
         listeningElement.setAttribute('style', 'display:none;');
         receivedElement.setAttribute('style', 'display:block;');
 
+        var url = 'http://tonio.biz/t2.png';
         var img = document.createElement('img');
-        img.src='http://tonio.biz/dessin.png';
+        img.src= url;
+
+        var dbTime, dbCreatedTime, fileTime, fileCreatedTime, fileTransferCreatedTime;
 
         img.addEventListener('load', function() {
             var done = 0;
@@ -80,7 +83,7 @@ var app = {
             });
             read_db = function() {
                 var end = new Date().getTime();
-                console.log('DB inserted time: ' + (end-start) + 'ms');
+                dbCreatedTime = end-start; 
                 for ( var i=0, l=ids.length ; i<l ; i++ ) {
                     var index = ids[i];
                     db.transaction(function(trx) {
@@ -90,7 +93,7 @@ var app = {
                             // img.setAttribute("src", res.rows.item(0).data);
                             if (done==NB_ITER) {
                                 var end = new Date().getTime();
-                                console.log('DB elapsed time: ' + (end-start) + 'ms');
+                                dbTime = end-start;
                                 with_files();
                             }
                         });
@@ -121,7 +124,7 @@ var app = {
                         done++;
                         if (done==NB_ITER) {
                             var end = new Date().getTime();
-                            console.log('Files created time: ' + (end-start) + 'ms');
+                            fileCreatedTime = end-start;
                             done = 0;
                             readFiles();
                         }
@@ -141,9 +144,10 @@ var app = {
                         done++;
                         if (done==NB_ITER) {
                             var end = new Date().getTime();
-                            console.log('File elapsed time: ' + (end-start) + 'ms');
+                            fileTime = end-start;
                             var img = document.getElementById('dessin');
                             img.setAttribute('src', evt.target.result);
+                            with_filetransfer();
                         }
                     };
                     reader.readAsText(file);
@@ -153,6 +157,56 @@ var app = {
                     console.log('************** ERROR ************* ' + error.code);
                 }
             };
+            with_filetransfer = function() {
+                done = 0;
+                var fileTransfer;
+                window.requestFileSystem(LocalFileSystem.PERSISTENT, 0, gotFS, fail);
+                function gotFS(fileSystem) {
+                    fileSystem.root.getDirectory("", {create: true, exclusive: false}, gotDirectory, fail);
+                }
+                function gotDirectory(dirEntry) {
+                    fileTransfer = new FileTransfer();
+                    // first download, wait for image to be put in cache
+                    fileTransfer.download(
+                        url,
+                        dirEntry.fullPath + '/tile.transfer.txt',
+                        function (file) {
+                            console.log("downloadImages *****");
+                            downloadImages(dirEntry, fileTransfer);
+                        },
+                        fail
+                    );
+                }
+                function downloadImages(dirEntry, fileTransfer) {
+                    var start = new Date().getTime();
+                    for ( var i=1 ; i<=NB_ITER ; i++ ) {
+                        fileTransfer.download(
+                            url + '?' + i,
+                            dirEntry.fullPath + '/tile' + i + '.transfer.txt',
+                            function (file) {
+                                done++;
+                                if (done==NB_ITER) {
+                                    var end = new Date().getTime();
+                                    fileTransferCreatedTime = end-start;
+                                    showResults();
+                                }
+                            },
+                            fail
+                        );
+                    }
+                }
+                function fail(error) {
+                    console.log('************** ERROR ************* ' + error.code);
+                }
+            }
+
+            showResults = function() {
+                console.log('DB created time: ' + dbCreatedTime + 'ms');
+                console.log('DB elapsed time: ' + dbTime + 'ms');
+                console.log('Files created time: ' + fileCreatedTime + 'ms');
+                console.log('File elapsed time: ' + fileTime + 'ms');
+                console.log('FileTransfer created time: ' + fileTransferCreatedTime + 'ms');
+            }
         });
     }
 };
