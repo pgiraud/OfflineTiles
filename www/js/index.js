@@ -104,7 +104,8 @@ var app = {
                 start = new Date().getTime();
                 window.requestFileSystem(LocalFileSystem.PERSISTENT, 0, gotFS, fail);
                 function gotFS(fileSystem) {
-                    console.log('gotFS');
+                    console.log("gotFS");
+                    window.fileSystem = fileSystem;
                     for ( var i=1 ; i<=NB_ITER ; i++ ) {
                         fileSystem.root.getFile("tile"+i+".txt", {create: true, exclusive: false}, gotFileEntry, fail);
                     }
@@ -117,10 +118,21 @@ var app = {
                     writer.onwriteend = function(evt){
                         var paths = writer.fileName.split('/'),
                             name = paths[paths.length-1];
-                        fileSystem.root.getFile(name, {create: true, exclusive: false}, gotFileEntryForReader, fail);
+                        done++;
+                        if (done==NB_ITER) {
+                            var end = new Date().getTime();
+                            console.log('Files created time: ' + (end-start) + 'ms');
+                            done = 0;
+                            readFiles();
+                        }
                     };
                 }
-                function gotFileEntry(fileEntry) {
+                function readFiles() {
+                    for ( var i=1 ; i<=NB_ITER ; i++ ) {
+                        window.fileSystem.root.getFile('tile' + i +'.txt', {exclusive: false}, gotFileEntryForReader, fail);
+                    }
+                }
+                function gotFileEntryForReader(fileEntry) {
                     fileEntry.file(gotFile, fail);
                 }
                 function gotFile(file) {
